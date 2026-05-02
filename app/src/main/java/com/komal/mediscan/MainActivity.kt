@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.komal.mediscan.Navigation.MediScanNavGraph
 import com.komal.mediscan.ui.theme.MediScanTheme
 
 class MainActivity : ComponentActivity() {
@@ -20,10 +21,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MediScanTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                    MediScanNavGraph()
                 }
             }
         }
