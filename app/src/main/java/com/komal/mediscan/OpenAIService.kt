@@ -25,12 +25,6 @@ object OpenAIService {
         return withContext(Dispatchers.IO) {
 
             val prompt = """
-You are a medical report analyzer. Given OCR text from a medical report,
-extract all test values and explain them in simple language a patient can understand.
-
-IMPORTANT: Respond ONLY with raw JSON. No markdown. No backticks. No explanation.
-Start your response with { and end with }
-
 JSON format:
 {
   "patientSummary": "2-3 sentence overall summary in very simple language",
@@ -66,7 +60,6 @@ ${ocrText.take(3000)}
                     })
                 })
             }
-
             val request = Request.Builder()
                 .url("https://api.openai.com/v1/chat/completions")
                 .post(

@@ -18,6 +18,9 @@ android {
     namespace = "com.komal.mediscan"
     compileSdk = 35
 
+    androidResources {
+        noCompress += "tflite"
+    }
     defaultConfig {
         applicationId = "com.komal.mediscan"
         minSdk = 24
@@ -111,4 +114,7 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+    //tf
+    implementation("org.tensorflow:tensorflow-lite:2.14.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
 }

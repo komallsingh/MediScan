@@ -123,7 +123,7 @@ fun UploadScreen(navController: NavController, vm: MediScanViewModel) {
             fontSize = 14.sp
         )
 
-        // ── Image preview box ────────────────────────────────────────────────
+        // ── Image preview box
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -169,7 +169,7 @@ fun UploadScreen(navController: NavController, vm: MediScanViewModel) {
             }
         }
 
-        // ── 3 buttons row ────────────────────────────────────────────────────
+        // 3 buttons row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -243,7 +243,7 @@ fun UploadScreen(navController: NavController, vm: MediScanViewModel) {
             }
         }
 
-        // ── Analyze button (only when file selected) ─────────────────────────
+        // Analyze button (only when file selected)
         val hasFile = imageUri != null ||
                 (vm.inputType == "pdf" && vm.capturedImageUri != null)
 
@@ -284,7 +284,7 @@ fun UploadScreen(navController: NavController, vm: MediScanViewModel) {
         }
     }
 
-    // ── Auto-launch camera after permission granted ───────────────────────────
+    // Auto-launch camera after permission granted
     LaunchedEffect(cameraPermission.status.isGranted) {
         // nothing auto — user taps the button again after granting
     }

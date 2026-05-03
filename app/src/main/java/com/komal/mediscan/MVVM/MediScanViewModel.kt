@@ -13,27 +13,27 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.PdfReader
 import com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor
-import com.komal.mediscan.OpenAIService
+import com.komal.mediscan.ML.MediScanTFLite
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MediScanViewModel : ViewModel() {
 
-    var capturedImageUri by mutableStateOf<Uri?>(null)
-    var inputType by mutableStateOf("image")
-    var extractedText by mutableStateOf("")
-    var editableText by mutableStateOf("")
-    var analysisResult by mutableStateOf<AnalysisResult?>(null)
-    var isProcessing by mutableStateOf(false)
-    var processingPhase by mutableStateOf("Reading report...")
-    var errorMessage by mutableStateOf<String?>(null)
+    var capturedImageUri  by mutableStateOf<Uri?>(null)
+    var inputType         by mutableStateOf("image")
+    var extractedText     by mutableStateOf("")
+    var editableText      by mutableStateOf("")
+    var localPredictions  by mutableStateOf<List<MediScanTFLite.TFLitePrediction>>(emptyList())
+    var isProcessing      by mutableStateOf(false)
+    var processingPhase   by mutableStateOf("Reading report...")
+    var errorMessage      by mutableStateOf<String?>(null)
 
-    // ─── OCR (image) ────────────────────────────────────────────────────────────
+    // ── OCR ───────────────────────────────────────────────────────────────────
     fun runOCR(context: Context, uri: Uri, onComplete: () -> Unit) {
-        isProcessing = true
+        isProcessing    = true
         processingPhase = "Reading report..."
-        errorMessage = null
+        errorMessage    = null
 
         val image = try {
             InputImage.fromFilePath(context, uri)
@@ -48,8 +48,8 @@ class MediScanViewModel : ViewModel() {
             .process(image)
             .addOnSuccessListener { visionText ->
                 extractedText = visionText.text
-                editableText = visionText.text
-                isProcessing = false
+                editableText  = visionText.text
+                isProcessing  = false
                 if (extractedText.trim().length < 20) {
                     errorMessage = "Very little text detected. Try better lighting."
                 }
@@ -61,45 +61,38 @@ class MediScanViewModel : ViewModel() {
             }
     }
 
-    // ─── PDF extraction using iText7 ────────────────────────────────────────────
+    // ── PDF ───────────────────────────────────────────────────────────────────
     fun extractPdfText(context: Context, uri: Uri, onComplete: () -> Unit) {
-        isProcessing = true
+        isProcessing    = true
         processingPhase = "Reading PDF..."
-        errorMessage = null
+        errorMessage    = null
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val inputStream = context.contentResolver.openInputStream(uri)
                     ?: throw Exception("Cannot open PDF file")
 
-                // iText7 — no init() call needed, works directly
                 val reader = PdfReader(inputStream)
-                val pdf = PdfDocument(reader)
-
-                val sb = StringBuilder()
+                val pdf    = PdfDocument(reader)
+                val sb     = StringBuilder()
                 for (i in 1..pdf.numberOfPages) {
-                    sb.append(
-                        PdfTextExtractor.getTextFromPage(pdf.getPage(i))
-                    )
+                    sb.append(PdfTextExtractor.getTextFromPage(pdf.getPage(i)))
                     sb.append("\n")
                 }
-
                 pdf.close()
                 inputStream.close()
 
                 val text = sb.toString()
-
                 withContext(Dispatchers.Main) {
                     extractedText = text
-                    editableText = text
-                    isProcessing = false
+                    editableText  = text
+                    isProcessing  = false
                     if (text.trim().length < 20) {
                         errorMessage =
-                            "PDF has no readable text. It may be scanned — use camera instead."
+                            "PDF has no readable text. Try taking a photo instead."
                     }
                     onComplete()
                 }
-
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     errorMessage = "PDF read failed: ${e.message}"
@@ -109,54 +102,121 @@ class MediScanViewModel : ViewModel() {
         }
     }
 
-    // ─── OpenAI analysis ────────────────────────────────────────────────────────
-    fun analyzeWithOpenAI(onComplete: () -> Unit) {
-        if (editableText.isBlank()) {
-            errorMessage = "No text to analyze. Please go back and try again."
-            return
-        }
-
-        isProcessing = true
+    // ── TFLite — runs everything locally, no internet needed ──────────────────
+    fun runLocalML(context: Context, onComplete: () -> Unit) {
+        isProcessing    = true
         processingPhase = "Analyzing values..."
-        errorMessage = null
+        errorMessage    = null
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             try {
-                val result = OpenAIService.analyzeReport(editableText)
-                analysisResult = result
-                isProcessing = false
-                onComplete()
-            } catch (e: Exception) {
-                errorMessage = when {
-                    e.message?.contains("401") == true ->
-                        "Invalid API key. Check local.properties."
-                    e.message?.contains("429") == true ->
-                        "Rate limit hit. Wait and try again."
-                    e.message?.contains("insufficient_quota") == true ->
-                        "OpenAI quota exceeded. Add billing at platform.openai.com."
-                    e.message?.contains("Unable to resolve host") == true ->
-                        "No internet connection."
-                    else -> "Analysis failed: ${e.message}"
+                MediScanTFLite.initialize(context)
+
+                val testKeywordMap = mapOf(
+                    "haemoglobin"  to "hemoglobin",
+                    "hgb"          to "hemoglobin",
+                    "hb"           to "hemoglobin",
+                    "hemoglobin"   to "hemoglobin",
+                    "glucose"      to "glucose",
+                    "blood sugar"  to "glucose",
+                    "fbs"          to "glucose",
+                    "rbs"          to "glucose",
+                    "creatinine"   to "creatinine",
+                    "urea"         to "urea",
+                    "bun"          to "urea",
+                    "sodium"       to "sodium",
+                    "na+"          to "sodium",
+                    "potassium"    to "potassium",
+                    "k+"           to "potassium",
+                    "platelets"    to "platelets",
+                    "plt"          to "platelets",
+                    "wbc"          to "wbc",
+                    "leucocytes"   to "wbc",
+                    "white blood"  to "wbc",
+                    "rbc"          to "rbc",
+                    "red blood"    to "rbc",
+                    "bilirubin"    to "total_bilirubin",
+                    "sgpt"         to "sgpt_alt",
+                    "alt"          to "sgpt_alt",
+                    "sgot"         to "sgot_ast",
+                    "ast"          to "sgot_ast",
+                    "tsh"          to "tsh",
+                    "thyroid"      to "tsh",
+                    "hba1c"        to "hba1c",
+                    "glycated"     to "hba1c",
+                    "cholesterol"  to "cholesterol_total",
+                    "hdl"          to "hdl",
+                    "ldl"          to "ldl",
+                    "triglycerides" to "triglycerides",
+                    "tg"           to "triglycerides",
+                    "uric acid"    to "uric_acid",
+                    "uric"         to "uric_acid",
+                    "vitamin d"    to "vitamin_d",
+                    "vit d"        to "vitamin_d",
+                    "vitamin b12"  to "vitamin_b12",
+                    "vit b12"      to "vitamin_b12",
+                    "b12"          to "vitamin_b12",
+                    "iron"         to "iron",
+                    "ferritin"     to "iron",
+                    "calcium"      to "calcium",
+                    "ca"           to "calcium"
+                )
+
+                val numberRegex = Regex("""(\d+\.?\d*)""")
+                val results     = mutableListOf<MediScanTFLite.TFLitePrediction>()
+                val seen        = mutableSetOf<String>()  // avoid duplicates
+
+                for (line in editableText.lines()) {
+                    val lower      = line.lowercase().trim()
+                    if (lower.isBlank()) continue
+
+                    val matchedKey = testKeywordMap.entries
+                        .firstOrNull { lower.contains(it.key) }?.value
+                        ?: continue
+
+                    if (seen.contains(matchedKey)) continue  // skip duplicate tests
+                    val value = numberRegex.find(line)?.value?.toFloatOrNull() ?: continue
+                    if (value <= 0f) continue
+
+                    try {
+                        results.add(MediScanTFLite.predict(matchedKey, value))
+                        seen.add(matchedKey)
+                    } catch (_: Exception) { }
                 }
-                isProcessing = false
+
+                withContext(Dispatchers.Main) {
+                    localPredictions = results
+                    isProcessing     = false
+                    if (results.isEmpty()) {
+                        errorMessage =
+                            "No test values detected. Please edit the text above " +
+                                    "to make sure test names and numbers are visible."
+                    }
+                    onComplete()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    errorMessage = "Analysis failed: ${e.message}"
+                    isProcessing = false
+                }
             }
         }
     }
 
-    // ─── Reset ──────────────────────────────────────────────────────────────────
+    // ── Reset ─────────────────────────────────────────────────────────────────
     fun reset() {
         capturedImageUri = null
-        inputType = "image"
-        extractedText = ""
-        editableText = ""
-        analysisResult = null
-        isProcessing = false
-        processingPhase = "Reading report..."
-        errorMessage = null
+        inputType        = "image"
+        extractedText    = ""
+        editableText     = ""
+        localPredictions = emptyList()
+        isProcessing     = false
+        processingPhase  = "Reading report..."
+        errorMessage     = null
     }
 }
 
-// ─── Data models ────────────────────────────────────────────────────────────────
+// ── Data models ───────────────────────────────────────────────────────────────
 data class AnalysisResult(
     val patientSummary: String,
     val testResults: List<TestResult>
