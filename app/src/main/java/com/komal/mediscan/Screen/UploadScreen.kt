@@ -1,14 +1,17 @@
 package com.komal.mediscan.Screen
 
 import android.Manifest
-import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -20,10 +23,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
@@ -39,14 +45,13 @@ import java.io.File
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun UploadScreen(navController: NavController, vm: MediScanViewModel) {
+
     val context = LocalContext.current
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var cameraFileRef by remember { mutableStateOf<File?>(null) }
 
-    // ── Camera permission ────────────────────────────────────────────────────
     val cameraPermission = rememberPermissionState(Manifest.permission.CAMERA)
 
-    // ── Camera launcher ──────────────────────────────────────────────────────
     val cameraLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture()
     ) { success ->
@@ -64,7 +69,6 @@ fun UploadScreen(navController: NavController, vm: MediScanViewModel) {
         }
     }
 
-    // ── Gallery launcher ─────────────────────────────────────────────────────
     val galleryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -75,7 +79,6 @@ fun UploadScreen(navController: NavController, vm: MediScanViewModel) {
         }
     }
 
-    // ── PDF launcher ─────────────────────────────────────────────────────────
     val pdfLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -90,7 +93,6 @@ fun UploadScreen(navController: NavController, vm: MediScanViewModel) {
         }
     }
 
-    // ── Helper: create temp file and launch camera ───────────────────────────
     fun launchCamera() {
         val file = File(context.cacheDir, "mediscan_${System.currentTimeMillis()}.jpg")
         cameraFileRef = file
@@ -102,190 +104,241 @@ fun UploadScreen(navController: NavController, vm: MediScanViewModel) {
         cameraLauncher.launch(uri)
     }
 
-    Column(
+    //  UI
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            "Scan Your Report",
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            "Upload a photo, take a picture, or select a PDF",
-            color = Color.Gray,
-            fontSize = 14.sp
-        )
-
-        // ── Image preview box
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFFF0F4F8))
-                .border(1.dp, Color(0xFFDDE3EA), RoundedCornerShape(16.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            when {
-                imageUri != null -> {
-                    AsyncImage(
-                        model = imageUri,
-                        contentDescription = "Selected image",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0xFF0A1F44),
+                        Color(0xFF123C69),
+                        Color(0xFF1E6091)
                     )
-                }
-                vm.inputType == "pdf" && vm.capturedImageUri != null -> {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.PictureAsPdf,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = Color(0xFFE53935)
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text("PDF selected", color = Color.Gray)
-                    }
-                }
-                else -> {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.PhotoLibrary,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = Color(0xFF90A4AE)
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text("No file selected", color = Color.Gray)
-                    }
-                }
-            }
-        }
-
-        // 3 buttons row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Camera button — requests permission first
-            OutlinedButton(
-                onClick = {
-                    if (cameraPermission.status.isGranted) {
-                        launchCamera()
-                    } else {
-                        cameraPermission.launchPermissionRequest()
-                    }
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(52.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.CameraAlt, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text("Camera", fontSize = 13.sp)
-            }
-
-            // Gallery button
-            OutlinedButton(
-                onClick = {
-                    galleryLauncher.launch(
-                        androidx.activity.result.PickVisualMediaRequest(
-                            ActivityResultContracts.PickVisualMedia.ImageOnly
-                        )
-                    )
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(52.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.PhotoLibrary, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text("Gallery", fontSize = 13.sp)
-            }
-
-            // PDF button
-            OutlinedButton(
-                onClick = {
-                    pdfLauncher.launch(arrayOf("application/pdf"))
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(52.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.PictureAsPdf, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text("PDF", fontSize = 13.sp)
-            }
-        }
-
-        // Show permission rationale if denied
-        if (!cameraPermission.status.isGranted) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3CD)),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text(
-                    "Camera permission is needed to take photos. Tap Camera to grant it.",
-                    modifier = Modifier.padding(12.dp),
-                    fontSize = 13.sp,
-                    color = Color(0xFF5D4037)
                 )
-            }
-        }
+            )
+    ) {
 
-        // Analyze button (only when file selected)
-        val hasFile = imageUri != null ||
-                (vm.inputType == "pdf" && vm.capturedImageUri != null)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
 
-        if (hasFile) {
-            Button(
-                onClick = {
-                    navController.navigate(Screen.Processing.route)
-                    val uri = vm.capturedImageUri ?: return@Button
+            Spacer(Modifier.height(24.dp))
 
-                    if (vm.inputType == "pdf") {
-                        vm.extractPdfText(context, uri) {
-                            navController.navigate(Screen.Confirm.route) {
-                                popUpTo(Screen.Processing.route) { inclusive = true }
-                            }
-                        }
-                    } else {
-                        vm.runOCR(context, uri) {
-                            navController.navigate(Screen.Confirm.route) {
-                                popUpTo(Screen.Processing.route) { inclusive = true }
-                            }
-                        }
-                    }
-                },
+            //  Title
+            Text(
+                "Scan Your Report",
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.offset(y = (24).dp)
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+
+
+            Spacer(Modifier.height(28.dp))
+
+            // Capture Box (CLICKABLE)
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF2ECC71)
-                )
+                    .height(300.dp)
+                    .background(
+                        Color.White.copy(alpha = 0.05f),
+                        RoundedCornerShape(24.dp)
+                    )
+                    .border(
+                        1.dp,
+                        Color.White.copy(alpha = 0.1f),
+                        RoundedCornerShape(24.dp)
+                    )
+                    .clickable {
+                        if (cameraPermission.status.isGranted) {
+                            launchCamera()
+                        } else {
+                            cameraPermission.launchPermissionRequest()
+                        }
+                    },
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    "Analyze Report →",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+
+                when {
+                    imageUri != null -> {
+                        AsyncImage(
+                            model = imageUri,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+
+                    vm.inputType == "pdf" && vm.capturedImageUri != null -> {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.PictureAsPdf,
+                                contentDescription = null,
+                                tint = Color(0xFFFF6B6B),
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Text("PDF Selected", color = Color.White)
+                        }
+                    }
+
+                    else -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+
+                            Box(
+                                modifier = Modifier
+                                    .size(75.dp)
+                                    .background(
+                                        Color(0xFF5BAF7A),
+                                        shape = CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.CameraAlt,
+                                    contentDescription = null,
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(34.dp)
+                                )
+                            }
+
+                            Spacer(Modifier.height(18.dp))
+
+                            Text(
+                                "Capture Now",
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp
+                            )
+
+                            Spacer(Modifier.height(6.dp))
+
+                            Text(
+                                "Align medical report within frame",
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
             }
+
+            Spacer(Modifier.height(50.dp))
+
+            //  Upload Options
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+
+                UploadOption(
+                    icon = Icons.Default.PhotoLibrary,
+                    title = "Gallery",
+                    subtitle = "Upload Photo",
+                    modifier = Modifier.weight(1f)
+                ) {
+                    galleryLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                }
+
+                UploadOption(
+                    icon = Icons.Default.PictureAsPdf,
+                    title = "Document",
+                    subtitle = "Upload PDF",
+                    modifier = Modifier.weight(1f)
+                ) {
+                    pdfLauncher.launch(arrayOf("application/pdf"))
+                }
+            }
+
+            Spacer(Modifier.height(50.dp))
+
+            val hasFile = imageUri != null ||
+                    (vm.inputType == "pdf" && vm.capturedImageUri != null)
+
+            if (hasFile) {
+                Button(
+                    onClick = {
+                        navController.navigate(Screen.Processing.route)
+                        val uri = vm.capturedImageUri ?: return@Button
+
+                        if (vm.inputType == "pdf") {
+                            vm.extractPdfText(context, uri) {
+                                navController.navigate(Screen.Confirm.route) {
+                                    popUpTo(Screen.Processing.route) { inclusive = true }
+                                }
+                            }
+                        } else {
+                            vm.runOCR(context, uri) {
+                                navController.navigate(Screen.Confirm.route) {
+                                    popUpTo(Screen.Processing.route) { inclusive = true }
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF22C55E)
+                    )
+                ) {
+                    Text(
+                        "Analyze Report",
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
         }
     }
+}
 
-    // Auto-launch camera after permission granted
-    LaunchedEffect(cameraPermission.status.isGranted) {
-        // nothing auto — user taps the button again after granting
+@Composable
+fun UploadOption(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .background(
+                Color.White.copy(alpha = 0.06f),
+                RoundedCornerShape(16.dp)
+            )
+            .clickable { onClick() }
+            .padding(16.dp)
+    ) {
+
+        Icon(icon, contentDescription = null, tint = Color(0xFF52FFA8))
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(title, color = Color.White, fontWeight = FontWeight.SemiBold)
+
+        Text(
+            subtitle,
+            color = Color.White.copy(alpha = 0.6f),
+            fontSize = 12.sp
+        )
     }
 }
