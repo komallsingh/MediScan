@@ -20,9 +20,17 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MediScanTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    MediScanNavGraph()
-                }
+                Scaffold(
+    modifier = Modifier.fillMaxSize()
+) { innerPadding ->
+
+    Box(
+        modifier = Modifier.padding(innerPadding)
+    ) {
+        MediScanNavGraph()
+    }
+}
+                   
             }
         }
     }
