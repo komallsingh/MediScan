@@ -1,4 +1,4 @@
-# 🩺 MediLens AI
+# 🩺 MediScan
 
 <div align="center">
 
