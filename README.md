@@ -1,6 +1,6 @@
-# 🩺 MediScan
-
 <div align="center">
+
+# 🩺 MediScan
 
 ### Understand your medical reports with AI-powered health insights.
 
@@ -30,6 +30,28 @@ Users can upload or scan reports directly from their device, and the application
 The goal is not to replace healthcare professionals but to help users better understand their reports before consulting a doctor.
 
 ---
+## 📱 App Screenshots
+
+<table align="center">
+  <tr>
+    <td align="center"><b>🏠 Home Screen</b></td>
+    <td align="center"><b>📤 Upload Screen</b></td>
+    <td align="center"><b>📄 Report Screen</b></td>
+  </tr>
+
+  <tr>
+    <td>
+      <img src="assests/home.MediScan.png" width="250"/>
+    </td>
+    <td>
+      <img src="assests/Screenshot_20260730-214733.MediScan.png" width="250"/>
+    </td>
+    <td>
+      <img src="assests/Screenshot_20260730-215527.MediScan.png" width="250"/>
+    </td>
+  </tr>
+</table>
+
 
 ## ✨ Features
 
